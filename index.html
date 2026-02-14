@@ -1,0 +1,526 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>BirthdayOS für Ludwig</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="card">
+    <h1>🎉 HAPPY BIRTHDAY LUDWIG 🎉</h1>
+    <p class="sub">BirthdayOS v3.0.0 — Chaos Build</p>
+
+    <div class="row">
+      <button id="startBtn">▶ START</button>
+      <button id="beepBtn" class="ghost">BEEP</button>
+    </div>
+
+    <pre id="terminal" class="terminal">System bereit…</pre>
+
+    <section class="panel">
+      <h2>Hotfix Required</h2>
+      <p>Tippe den Patch-Satz exakt ein, sonst bleibt alles locked:</p>
+
+      <div class="row">
+        <input id="patchInput" placeholder='Patch phrase: ' />
+        <button id="patchBtn">UNLOCK</button>
+      </div>
+
+      <p id="unlockStatus" class="status">Status: LOCKED</p>
+    </section>
+
+    <section id="gamePanel" class="panel disabled">
+  <h2>Mini-Games</h2>
+  <p>Wähle ein Game (beide sind chaotisch):</p>
+
+  <div class="row">
+    <select id="gameSelect">
+      <option value="number" selected>Guess the Number (1–10)</option>
+      <option value="wall">Boulder Wall (L/M/R)</option>
+    </select>
+    <button id="resetGameBtn" class="ghost"> Reset Game</button>
+  </div>
+
+  <!-- Game 1: Number guess -->
+  <div id="numberGame">
+    <p>Zahl zwischen <b>1</b> und <b>10</b>. Du hast <b>4</b> Versuche.</p>
+    <div class="row">
+      <input id="guessInput" placeholder="Dein Tipp (1-10)" inputmode="numeric" />
+      <button id="guessBtn">GUESS</button>
+    </div>
+    <p id="gameStatus" class="status">Noch nicht gestartet.</p>
+  </div>
+
+  <!-- Game 2: ASCII wall -->
+  <div id="wallGame" class="hidden">
+    <p>Pick holds: <b>L</b>, <b>M</b>, <b>R</b>. Richtiger Hold = hoch. Falscher = Slip </p>
+    <pre id="wallOut" class="terminal small">---</pre>
+
+    <div class="row">
+      <button class="holdBtn" data-hold="L">L</button>
+      <button class="holdBtn" data-hold="M">M</button>
+      <button class="holdBtn" data-hold="R">R</button>
+    </div>
+
+    <p id="wallStatus" class="status">Wand wartet…</p>
+  </div>
+</section>
+
+
+    <section id="voucherPanel" class="panel disabled">
+      <h2>Gutschein</h2>
+      <p>Am Ende bekommst du deinen Code:</p>
+      <pre id="voucherOut" class="terminal small">---</pre>
+      <button id="copyBtn" class="ghost">Code kopieren</button>
+    </section>
+
+    <p class="hint">Pro-Tipp: Wenn’s nicht klappt → laut sagen: <b>Ach Leaaa</b> </p>
+  </main>
+
+<script>
+  // ---------- tiny terminal helpers ----------
+  const terminal = document.getElementById("terminal");
+  const startBtn = document.getElementById("startBtn");
+  const beepBtn = document.getElementById("beepBtn");
+
+  const patchInput = document.getElementById("patchInput");
+  const patchBtn = document.getElementById("patchBtn");
+  const unlockStatus = document.getElementById("unlockStatus");
+
+  const gamePanel = document.getElementById("gamePanel");
+  const guessInput = document.getElementById("guessInput");
+  const guessBtn = document.getElementById("guessBtn");
+  const gameStatus = document.getElementById("gameStatus");
+
+  const voucherPanel = document.getElementById("voucherPanel");
+  const voucherOut = document.getElementById("voucherOut");
+  const copyBtn = document.getElementById("copyBtn");
+
+  const gameSelect = document.getElementById("gameSelect");
+  const resetGameBtn = document.getElementById("resetGameBtn");
+
+  const numberGame = document.getElementById("numberGame");
+  const wallGame = document.getElementById("wallGame");
+
+  const wallOut = document.getElementById("wallOut");
+  const wallStatus = document.getElementById("wallStatus");
+  const holdBtns = document.querySelectorAll(".holdBtn");
+
+
+  let unlocked = false;
+
+  function typeLines(lines, speed=90) {
+    terminal.textContent = "";
+    let i = 0;
+    const t = setInterval(() => {
+      terminal.textContent += lines[i] + "\n";
+      i++;
+      if (i >= lines.length) clearInterval(t);
+    }, speed);
+  }
+
+  // ---------- SOUND (Web Audio API) ----------
+  function beep(freq = 880, duration = 0.09) {
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "square";
+      osc.frequency.value = freq;
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      gain.gain.value = 0.06;
+      osc.start();
+      setTimeout(() => {
+        osc.stop();
+        ctx.close();
+      }, duration * 1000);
+    } catch (e) {
+      // If audio blocked, we silently ignore
+    }
+  }
+
+  beepBtn.addEventListener("click", () => {
+    beep(880, 0.09);
+    beep(660, 0.07);
+  });
+
+  // ---------- START sequence ----------
+  startBtn.addEventListener("click", () => {
+    beep(880, 0.08);
+    const lines = [
+      ">>> Initializing BirthdayOS v3.0.0 (web build)...",
+      "Loading snacks.dll ... ",
+      "Mounting boulder_wall:/ ... ",
+      "",
+      "⚠ SYSTEM ERROR: FRIENDSHIP_DRIVER crashed unexpectedly.",
+      "RuntimeError: TooMuchCuteException: Ludwig is too sweet",
+      "",
+      "Hotfix required → type patch phrase to continue:",
+      "   >>> Ach Leaaa"
+    ];
+    typeLines(lines, 95);
+  });
+
+  // ---------- UNLOCK gate ----------
+  patchBtn.addEventListener("click", () => {
+    beep(740, 0.08);
+
+    const patch = patchInput.value.trim();
+    if (patch === "Ach Leaaa") {
+      unlocked = true;
+      unlockStatus.textContent = "Status: UNLOCKED";
+      unlockStatus.classList.add("ok");
+
+      // Enable game panel
+      gamePanel.classList.remove("disabled");
+      updateGameUI();
+      gameStatus.textContent = "Game bereit. Tipp eine Zahl.";
+      beep(988, 0.09);
+      beep(1318, 0.08);
+
+      // Personal message in terminal
+      typeLines([
+
+      "Lieber Ludwig, alles Gute zum Geburtstag!",
+      "",
+      "Ich weiß gar nicht, womit ich anfangen soll – vielleicht damit,",
+      "dass die Welt mit dir einfach lustiger, wärmer und ein kleines",
+      "bisschen verrückter ist.",
+      "",
+      "Mit dir wird jeder Spaziergang zur Expedition,",
+      "jedes Gespräch zu einem stundenlangen Deep Talk",
+      "und jedes Problem plötzlich nur noch halb so schlimm.",
+      "",
+      "Ich bin so unfassbar dankbar, dass es dich gibt.",
+      "Für deine Geduld, deinen Humor, deine Umarmungen",
+      "und dafür, dass du einfach immer da bist –",
+      "egal ob ich Chaos veranstalte oder mal wieder zu viel denke.",
+      "",
+      "Ich wünsche dir ein Jahr voller Abenteuer, Glück, Liebe, Erfolg",
+      "und ganz vielen Momenten, die sich genau richtig anfühlen.",
+      "",
+      "Und ich hoffe, ich darf bei ganz vielen davon",
+      "an deiner Seite sein.",
+      "",
+      "Du verdienst nur das Beste.",
+      "Und Kuchen. Ganz viel Kuchen.",
+      "",
+      "Lea ♡"
+], 70);
+
+    } else {
+      unlockStatus.textContent = "Status: LOCKED  (Exact spelling matters!)";
+      unlockStatus.classList.remove("ok");
+      beep(220, 0.12);
+      beep(196, 0.12);
+    }
+  });
+
+  // ---------- MINI GAME 1: Number Guess ----------
+  let secret = null;
+  let tries = 4;
+
+  function startGameIfNeeded() {
+    if (secret === null) {
+      secret = Math.floor(Math.random() * 10) + 1; // 1..10
+      tries = 4;
+    }
+  }
+
+  function generateVoucherCode() {
+    // Deterministic-ish: hash of date + random salt + name
+    const year = new Date().getFullYear();
+    const salt = Math.floor(Math.random() * 1e9).toString(16);
+    const base = `LUDWIG|LEA|ACHLEAAA|${year}|${salt}`;
+    // Simple hash
+    let hash = 0;
+    for (let i = 0; i < base.length; i++) {
+      hash = (hash * 31 + base.charCodeAt(i)) >>> 0;
+    }
+    const short = hash.toString(16).toUpperCase().padStart(8, "0").slice(0, 6);
+    return `SNOW-CHAOS-${year}-ACHLEAAA-${short}`;
+  }
+
+  guessBtn.addEventListener("click", () => {
+    if (!unlocked) {
+      gameStatus.textContent = "Erst UNLOCK mit: Ach Leaaa ";
+      beep(200, 0.1);
+      return;
+    }
+
+    startGameIfNeeded();
+
+    const raw = guessInput.value.trim();
+    const n = Number(raw);
+
+    if (!Number.isInteger(n) || n < 1 || n > 10) {
+      gameStatus.textContent = "Bitte eine ganze Zahl von 1–10 eingeben.";
+      beep(240, 0.1);
+      return;
+    }
+
+    tries--;
+
+    if (n === secret) {
+      gameStatus.textContent = "SEND! Gutschein unlocked!";
+      beep(988, 0.08);
+      beep(1318, 0.08);
+      beep(1760, 0.10);
+
+      // Enable voucher section
+      voucherPanel.classList.remove("disabled");
+      const code = generateVoucherCode();
+      voucherOut.textContent =
+        `>>> ${code}\n` +
+        `Einlösbar für: 1x Snowboard Tutorial mit Lea`;
+
+      typeLines([
+        "TOP OUT!",
+        "🎟 Gutschein generated successfully.",
+        `>>> ${code}`,
+        "",
+        "Lea: 'Ach Luuudwig du hast es geschafft!"
+      ], 80);
+
+      // Reset game so it can't be spammed
+      secret = null;
+      tries = 4;
+
+    } else {
+      const hint = n < secret ? "zu niedrig" : "zu hoch";
+      if (tries > 0) {
+        gameStatus.textContent = ` ${hint}. Noch ${tries} Versuch(e).`;
+        beep(330, 0.07);
+      } else {
+        gameStatus.textContent = `💥 Cruxed. Die Zahl war ${secret}.`;
+        beep(180, 0.12);
+        beep(160, 0.12);
+        // Reset
+        secret = null;
+        tries = 4;
+      }
+    }
+  });
+
+    // ---------- MINI GAME 2: Boulder Wall (realer) ----------
+  let wallRows = 8;                 // height
+  let wallRow = 0;                  // current row (0 = bottom)
+  let cruxRow = null;               // random tough row
+  let wallGoodHolds = [];           // per row: array of allowed holds, e.g. ["L"] or ["L","R"]
+  let wallSlipLock = false;         // prevent spam during animation
+
+  function pickGoodHoldsForRow(isCrux) {
+    const holds = ["L", "M", "R"];
+
+    // Immer nur EIN echter Hold pro Reihe
+    const onlyHold = holds[Math.floor(Math.random() * holds.length)];
+
+    return [onlyHold];
+  }
+
+  function resetWallGameReal() {
+    wallRow = 0;
+    wallSlipLock = false;
+
+    // Crux: irgendeine Reihe (nicht ganz unten / nicht ganz oben)
+    cruxRow = Math.floor(Math.random() * (wallRows - 2)) + 1;
+
+    // Good holds pro Reihe generieren
+    wallGoodHolds = Array.from({ length: wallRows }, (_, r) => pickGoodHoldsForRow(r === cruxRow));
+
+    renderWallReal();
+    wallStatus.textContent = "Start unten. Pick L/M/R.";
+    }
+
+  function restartWallGameWithMessage(msg) {
+     beep(220, 0.09);
+     beep(180, 0.09);
+
+     wallStatus.textContent = msg + "  Restarting…";
+
+     setTimeout(() => {
+       wallGoodHolds = [];
+       cruxRow = null;
+       wallRow = 0;
+       resetWallGameReal();
+     }, 900); // kleine Pause für Dramaturgie
+  }
+
+
+  function rowToSymbols(r) {
+    // Create a base row with 3 positions L M R
+    // Show only good holds as 'O', others as '.'
+    const good = wallGoodHolds[r] || [];
+    const sym = (h) => good.includes(h) ? "O" : ".";
+    return ` ${sym("L")}   ${sym("M")}   ${sym("R")} `;
+  }
+
+  function renderWallReal(extraMarkerRow = null, extraMarker = "") {
+    const lines = [];
+    for (let r = wallRows - 1; r >= 0; r--) {
+      const isCurrent = (r === wallRow);
+      const marker = isCurrent ? "🧗 " : "   ";
+
+      const cruxTag = (r === cruxRow) ? "  CRUX" : "";
+      const failTag = (r === extraMarkerRow) ? `  ${extraMarker}` : "";
+
+      lines.push(marker + rowToSymbols(r) + cruxTag + failTag);
+    }
+    lines.push("    L   M   R");
+    wallOut.textContent = lines.join("\n");
+  }
+
+  async function slipAnimation() {
+    wallSlipLock = true;
+    // quick "fall" effect: move marker down one row and back
+    const start = wallRow;
+    const frames = [
+      { row: start, tag: "💥 SLIP" },
+      { row: Math.max(0, start - 1), tag: "⬇" },
+      { row: start, tag: "" },
+    ];
+
+    for (const f of frames) {
+      renderWallReal(f.row, f.tag);
+      await new Promise(res => setTimeout(res, 140));
+    }
+    renderWallReal();
+    wallSlipLock = false;
+  }
+
+  function wallPickReal(hold) {
+    if (!unlocked) {
+      wallStatus.textContent = "Erst UNLOCK mit: Ach Leaaa ";
+      beep(200, 0.1);
+      return;
+    }
+    if (wallSlipLock) return;
+
+    // init if needed
+    if (wallGoodHolds.length === 0 || cruxRow === null) resetWallGameReal();
+
+    const good = wallGoodHolds[wallRow];
+    const isCrux = wallRow === cruxRow;
+
+    if (good.includes(hold)) {
+
+      // richtig – aber an der CRUX kann man trotzdem zufällig slippen
+      const slipChanceCrux = 0.82; // 82% (z.B. 0.2 für weniger fies)
+      if (isCrux && Math.random() < slipChanceCrux) {
+        beep(220, 0.09); beep(180, 0.09);
+        restartWallGameWithMessage("💥 CRUX BETRUG! Richtiger Hold, aber… *SLIP* ");
+        slipAnimation();
+        return;
+      }
+
+      // normal success
+      beep(isCrux ? 740 : 660, 0.06);
+      wallStatus.textContent = isCrux ? "CRUX GEHALTEN" : " Nice. Solid hold.";
+      wallRow++;
+
+      if (wallRow >= wallRows) {
+        // WIN
+        beep(988, 0.08); beep(1318, 0.08); beep(1760, 0.10);
+        wallStatus.textContent = " TOP OUT! Gutschein unlocked!";
+        renderWallReal();
+
+        voucherPanel.classList.remove("disabled");
+        const code = generateVoucherCode();
+        voucherOut.textContent =
+          `>>> ${code}\n` +
+          `Einlösbar für: 1x Snowboard Tutorial mit Lea`;
+
+        typeLines([
+          "TOP OUT (ASCII WALL - CRUX CLEAR)!",
+          "🎟 Gutschein generated successfully.",
+          `>>> ${code}`,
+          "",
+          "Lea: 'Ach Luuudwig, das hat aber lange gedauert!"
+        ], 80);
+
+        // reset for replay
+        wallGoodHolds = [];
+        cruxRow = null;
+        wallRow = 0;
+        return;
+      }
+
+      renderWallReal();
+    } else {
+      // slip
+      beep(220, 0.09); beep(180, 0.09);
+      restartWallGameWithMessage("💥 SLIP! Falscher Hold. No shame. Try again.");
+      return;
+    }
+
+  }
+
+  // Re-bind buttons to the real version
+  holdBtns.forEach(btn => {
+    btn.addEventListener("click", () => wallPickReal(btn.dataset.hold));
+  });
+
+
+  // ---------- Game Switch ----------
+  function updateGameUI() {
+    const v = gameSelect.value;
+    if (v === "number") {
+      numberGame.classList.remove("hidden");
+      wallGame.classList.add("hidden");
+      gameStatus.textContent = unlocked ? "Game bereit. Tipp eine Zahl " : "Erst unlocken.";
+    } else {
+      wallGame.classList.remove("hidden");
+      numberGame.classList.add("hidden");
+      if (unlocked) {
+        if (wallGoodHolds.length === 0 || cruxRow === null) resetWallGameReal();
+      } else {
+        wallStatus.textContent = "Erst unlocken.";
+      }
+    }
+  }
+
+  gameSelect.addEventListener("change", updateGameUI);
+
+  resetGameBtn.addEventListener("click", () => {
+    // reset number game
+    secret = null;
+    tries = 4;
+    guessInput.value = "";
+    gameStatus.textContent = "Reset. Tipp eine Zahl ";
+
+    // reset wall game (real)
+    wallGoodHolds = [];
+    cruxRow = null;
+    wallRow = 0;
+    wallOut.textContent = "---";
+    wallStatus.textContent = "Reset. Wand wartet…";
+
+
+    beep(520, 0.07);
+    beep(420, 0.07);
+    updateGameUI();
+  });
+
+  // ---------- COPY voucher ----------
+  copyBtn.addEventListener("click", async () => {
+    const txt = voucherOut.textContent.trim();
+    if (txt === "---") return;
+    try {
+      await navigator.clipboard.writeText(txt);
+      beep(880, 0.08);
+      beep(1100, 0.08);
+      copyBtn.textContent = " Kopiert!";
+      setTimeout(() => (copyBtn.textContent = "Code kopieren"), 1200);
+    } catch {
+      // fallback: select text
+      beep(200, 0.1);
+      copyBtn.textContent = "Browser blockt Copy ";
+      setTimeout(() => (copyBtn.textContent = "Code kopieren"), 1400);
+    }
+  });
+</script>
+</body>
+</html>
